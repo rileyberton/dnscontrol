@@ -19,9 +19,10 @@ import (
 )
 
 type route53Provider struct {
-	client    *r53.Route53
-	registrar *r53d.Route53Domains
-	zones     map[string]*r53.HostedZone
+	client        *r53.Route53
+	registrar     *r53d.Route53Domains
+	delegationSet *string
+	zones         map[string]*r53.HostedZone
 }
 
 func newRoute53Reg(conf map[string]string) (providers.Registrar, error) {
@@ -48,7 +49,11 @@ func newRoute53(m map[string]string, metadata json.RawMessage) (*route53Provider
 	}
 	sess := session.New(config)
 
-	api := &route53Provider{client: r53.New(sess), registrar: r53d.New(sess)}
+	var dls *string = nil
+	if val, ok := m["DelegationSet"]; ok {
+		dls = &val
+	}
+	api := &route53Provider{client: r53.New(sess), registrar: r53d.New(sess), delegationSet: dls}
 	err := api.getZones()
 	if err != nil {
 		return nil, err
@@ -430,6 +435,7 @@ func (r *route53Provider) EnsureDomainExists(domain string) error {
 	fmt.Printf("Adding zone for %s to route 53 account\n", domain)
 	in := &r53.CreateHostedZoneInput{
 		Name:            &domain,
+		DelegationSetId: r.delegationSet,
 		CallerReference: sPtr(fmt.Sprint(time.Now().UnixNano())),
 	}
 	_, err := r.client.CreateHostedZone(in)

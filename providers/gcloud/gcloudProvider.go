@@ -30,13 +30,14 @@ func init() {
 }
 
 type gcloud struct {
-	client  *gdns.Service
-	project string
-	zones   map[string]*gdns.ManagedZone
+	client        *gdns.Service
+	project       string
+	nameServerSet *string
+	zones         map[string]*gdns.ManagedZone
 }
 
 // New creates a new gcloud provider
-func New(cfg map[string]string, _ json.RawMessage) (providers.DNSServiceProvider, error) {
+func New(cfg map[string]string, metadata json.RawMessage) (providers.DNSServiceProvider, error) {
 	raw, err := json.Marshal(cfg)
 	if err != nil {
 		return nil, err
@@ -51,9 +52,14 @@ func New(cfg map[string]string, _ json.RawMessage) (providers.DNSServiceProvider
 	if err != nil {
 		return nil, err
 	}
+	var nss *string = nil
+	if val, ok := cfg["name_server_set"]; ok {
+		nss = &val
+	}
 	return &gcloud{
-		client:  dcli,
-		project: cfg["project_id"],
+		client:        dcli,
+		nameServerSet: nss,
+		project:       cfg["project_id"],
 	}, nil
 }
 
@@ -232,10 +238,20 @@ func (g *gcloud) EnsureDomainExists(domain string) error {
 		return nil
 	}
 	fmt.Printf("Adding zone for %s to gcloud account\n", domain)
-	mz := &gdns.ManagedZone{
-		DnsName:     domain + ".",
-		Name:        "zone-" + strings.Replace(domain, ".", "-", -1),
-		Description: "zone added by dnscontrol",
+	var mz *gdns.ManagedZone
+	if g.nameServerSet != nil {
+		mz = &gdns.ManagedZone{
+			DnsName:       domain + ".",
+			NameServerSet: *g.nameServerSet,
+			Name:          "zone-" + strings.Replace(domain, ".", "-", -1),
+			Description:   "zone added by dnscontrol",
+		}
+	} else {
+		mz = &gdns.ManagedZone{
+			DnsName:     domain + ".",
+			Name:        "zone-" + strings.Replace(domain, ".", "-", -1),
+			Description: "zone added by dnscontrol",
+		}
 	}
 	g.zones = nil // reset cache
 	_, err = g.client.ManagedZones.Create(g.project, mz).Do()

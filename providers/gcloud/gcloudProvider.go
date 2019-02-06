@@ -54,7 +54,7 @@ func New(cfg map[string]string, metadata json.RawMessage) (providers.DNSServiceP
 	}
 	var nss *string = nil
 	if val, ok := cfg["name_server_set"]; ok {
-		nss = &val
+		nss = sPtr(val)
 	}
 	return &gcloud{
 		client:        dcli,

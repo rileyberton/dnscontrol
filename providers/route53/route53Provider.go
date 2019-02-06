@@ -433,7 +433,7 @@ func (r *route53Provider) EnsureDomainExists(domain string) error {
 	if _, ok := r.zones[domain]; ok {
 		return nil
 	}
-	fmt.Printf("Adding zone for %s to route 53 account with delegationSet %s\n", domain, r.delegationSet)
+	fmt.Printf("Adding zone for %s to route 53 account with delegationSet %s\n", domain, *r.delegationSet)
 	in := &r53.CreateHostedZoneInput{
 		Name:            &domain,
 		DelegationSetId: r.delegationSet,

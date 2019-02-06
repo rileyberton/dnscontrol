@@ -58,6 +58,7 @@ func New(cfg map[string]string, metadata json.RawMessage) (providers.DNSServiceP
 	}
 	var nss *string = nil
 	if val, ok := cfg["name_server_set"]; ok {
+		fmt.Printf("name_server_set %s configured\n", val)
 		nss = sPtr(val)
 	}
 	return &gcloud{
@@ -241,7 +242,7 @@ func (g *gcloud) EnsureDomainExists(domain string) error {
 	if z != nil {
 		return nil
 	}
-	fmt.Printf("Adding zone for %s to gcloud account\n", domain)
+	fmt.Printf("Adding zone for %s to gcloud account with name_server_set %s\n", domain, *g.nameServerSet)
 	var mz *gdns.ManagedZone
 	if g.nameServerSet != nil {
 		mz = &gdns.ManagedZone{

@@ -25,6 +25,10 @@ var features = providers.DocumentationNotes{
 	providers.CanUseTXTMulti:         providers.Can(),
 }
 
+func sPtr(s string) *string {
+	return &s
+}
+
 func init() {
 	providers.RegisterDomainServiceProviderType("GCLOUD", New, features)
 }

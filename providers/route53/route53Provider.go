@@ -51,7 +51,8 @@ func newRoute53(m map[string]string, metadata json.RawMessage) (*route53Provider
 
 	var dls *string = nil
 	if val, ok := m["DelegationSet"]; ok {
-		dls = &val
+		fmt.Printf("DelegationSet %s configured\n", val)
+		dls = sPtr(val)
 	}
 	api := &route53Provider{client: r53.New(sess), registrar: r53d.New(sess), delegationSet: dls}
 	err := api.getZones()
@@ -432,7 +433,7 @@ func (r *route53Provider) EnsureDomainExists(domain string) error {
 	if _, ok := r.zones[domain]; ok {
 		return nil
 	}
-	fmt.Printf("Adding zone for %s to route 53 account\n", domain)
+	fmt.Printf("Adding zone for %s to route 53 account with delegationSet %s\n", domain, r.delegationSet)
 	in := &r53.CreateHostedZoneInput{
 		Name:            &domain,
 		DelegationSetId: r.delegationSet,
@@ -440,5 +441,4 @@ func (r *route53Provider) EnsureDomainExists(domain string) error {
 	}
 	_, err := r.client.CreateHostedZone(in)
 	return err
-
 }

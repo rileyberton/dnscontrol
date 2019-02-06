@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/StackExchange/dnscontrol/commands"
-	_ "github.com/StackExchange/dnscontrol/providers/_all"
+	_ "github.com/rileyberton/dnscontrol/providers/_all"
 )
 
 //go:generate go run build/generate/generate.go build/generate/featureMatrix.go

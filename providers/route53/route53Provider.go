@@ -51,7 +51,7 @@ func newRoute53(m map[string]string, metadata json.RawMessage) (*route53Provider
 
 	var dls *string = nil
 	if val, ok := m["DelegationSet"]; ok {
-		fmt.Printf("DelegationSet %s configured\n", val)
+		fmt.Printf("ROUTE53 DelegationSet %s configured\n", val)
 		dls = sPtr(val)
 	}
 	api := &route53Provider{client: r53.New(sess), registrar: r53d.New(sess), delegationSet: dls}

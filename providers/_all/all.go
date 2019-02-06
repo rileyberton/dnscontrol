@@ -9,7 +9,6 @@ import (
 	_ "github.com/StackExchange/dnscontrol/providers/digitalocean"
 	_ "github.com/StackExchange/dnscontrol/providers/dnsimple"
 	_ "github.com/StackExchange/dnscontrol/providers/gandi"
-	_ "github.com/StackExchange/dnscontrol/providers/gcloud"
 	_ "github.com/StackExchange/dnscontrol/providers/hexonet"
 	_ "github.com/StackExchange/dnscontrol/providers/linode"
 	_ "github.com/StackExchange/dnscontrol/providers/namecheap"
@@ -18,7 +17,8 @@ import (
 	_ "github.com/StackExchange/dnscontrol/providers/octodns"
 	_ "github.com/StackExchange/dnscontrol/providers/opensrs"
 	_ "github.com/StackExchange/dnscontrol/providers/ovh"
-	_ "github.com/StackExchange/dnscontrol/providers/route53"
 	_ "github.com/StackExchange/dnscontrol/providers/softlayer"
 	_ "github.com/StackExchange/dnscontrol/providers/vultr"
+	_ "github.com/rileyberton/dnscontrol/providers/gcloud"
+	_ "github.com/rileyberton/dnscontrol/providers/route53"
 )

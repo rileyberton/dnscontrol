@@ -118,37 +118,33 @@ func (e errNoExist) Error() string {
 	return fmt.Sprintf("Domain %s not found in your route 53 account", e.domain)
 }
 
-func doWithRetry(f func() (_, error)) (_, error) {
-	const maxRetries = 23
-	const sleepTime = 5 * time.Second
-	var currentRetry int
-	for {
-		x, err := f()
-		if err == nil {
-			return x, nil
-		}
-		if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
-			currentRetry++
-			if currentRetry >= maxRetries {
-				return nil, err
-			}
-			fmt.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
-			time.Sleep(sleepTime)
-		}
-		return nil, err
-	}
-}
-
 func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, error) {
 
 	zone, ok := r.zones[domain]
 	if !ok {
 		return nil, errNoExist{domain}
 	}
-	z, err := doWithRetry(func() (*r53.GetHostedZoneOutput, error) {
-		z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
-		return z, err
-	})
+	z, err := func() (*r53.GetHostedZoneOutput, error) {
+		const maxRetries = 23
+		const sleepTime = 5 * time.Second
+		var currentRetry int
+		for {
+			z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
+			if err == nil {
+				return z, nil
+			}
+			if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
+				currentRetry++
+				if currentRetry >= maxRetries {
+					return nil, err
+				}
+				fmt.Printf("GetNameservers Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
+				time.Sleep(sleepTime)
+			}
+			return nil, err
+		}
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -447,10 +443,27 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 			StartRecordType: nextType,
 			MaxItems:        sPtr("100"),
 		}
-		list, err := doWithRetry(func() (*r53.ListResourceRecordSetsOutput, error) {
-			list, err := r.client.ListResourceRecordSets(listInput)
-			return list, err
-		})
+		list, err := func() (*r53.ListResourceRecordSetsOutput, error) {
+			const maxRetries = 23
+			const sleepTime = 5 * time.Second
+			var currentRetry int
+			for {
+				z, err := r.client.ListResourceRecordSets(listInput)
+				if err == nil {
+					return z, nil
+				}
+				if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
+					currentRetry++
+					if currentRetry >= maxRetries {
+						return nil, err
+					}
+					fmt.Printf("fetchRecordSets Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
+					time.Sleep(sleepTime)
+				}
+				return nil, err
+			}
+			return nil, err
+		}
 		if err != nil {
 			return nil, err
 		}

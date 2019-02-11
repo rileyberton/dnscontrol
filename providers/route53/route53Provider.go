@@ -136,29 +136,6 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 	return ns, nil
 }
 
-func doWithRetry(f func() error) {
-	// sleep 5 seconds at a time, up to 23 times (1 minute, 15 seconds)
-	const maxRetries = 23
-	const sleepTime = 5 * time.Second
-	var currentRetry int
-	for {
-		err := f()
-		if err == nil {
-			return
-		}
-		if strings.Contains(err.Error(), "Throttling") {
-			currentRetry++
-			if currentRetry >= maxRetries {
-				return
-			}
-			printer.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
-			time.Sleep(sleepTime)
-		} else {
-			return
-		}
-	}
-}
-
 func (r *route53Provider) GetDomainCorrections(dc *models.DomainConfig) ([]*models.Correction, error) {
 	dc.Punycode()
 
@@ -282,7 +259,7 @@ func (r *route53Provider) GetDomainCorrections(dc *models.DomainConfig) ([]*mode
 							if currentRetry >= maxRetries {
 								return err
 							}
-							printer.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
+							fmt.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
 							time.Sleep(sleepTime)
 						}
 						return err

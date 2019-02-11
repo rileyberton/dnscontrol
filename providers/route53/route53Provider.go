@@ -118,24 +118,27 @@ func (e errNoExist) Error() string {
 	return fmt.Sprintf("Domain %s not found in your route 53 account", e.domain)
 }
 
-func doWithRetry(f func() error) {
+type awsreturn struct {
+}
+
+func doWithRetry(f func() (*awsreturn, error)) (*awsreturn, error) {
 	const maxRetries = 23
 	const sleepTime = 5 * time.Second
 	var currentRetry int
 	for {
-		err := f()
+		x, err := f()
 		if err == nil {
-			return
+			return x, nil
 		}
 		if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
 			currentRetry++
 			if currentRetry >= maxRetries {
-				return
+				return nil, err
 			}
 			fmt.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
 			time.Sleep(sleepTime)
 		}
-		return
+		return nil, err
 	}
 }
 
@@ -145,16 +148,13 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 	if !ok {
 		return nil, errNoExist{domain}
 	}
-	var z *r53.GetHostedZoneOutput
-	var err error
-	doWithRetry(func() error {
+	z, err = doWithRetry(func() (*awsreturn, error) {
 		z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
-		return err
+		return z, err
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	ns := []*models.Nameserver{}
 	if z.DelegationSet != nil {
 		for _, nsPtr := range z.DelegationSet.NameServers {
@@ -452,9 +452,9 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 		}
 		var list *r53.ListResourceRecordSetsOutput
 		var err error
-		doWithRetry(func() error {
+		list, err = doWithRetry(func() (*awsreturn, error) {
 			list, err := r.client.ListResourceRecordSets(listInput)
-			return err
+			return list, err
 		})
 		if err != nil {
 			return nil, err

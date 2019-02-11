@@ -117,16 +117,43 @@ func (e errNoExist) Error() string {
 	return fmt.Sprintf("Domain %s not found in your route 53 account", e.domain)
 }
 
+func doWithRetry(f func() error) {
+	const maxRetries = 23
+	const sleepTime = 5 * time.Second
+	var currentRetry int
+	for {
+		err := f()
+		if err == nil {
+			return
+		}
+		if err.Code() == route53.ErrCodeThrottlingException {
+			currentRetry++
+			if currentRetry >= maxRetries {
+				return
+			}
+			fmt.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
+			time.Sleep(sleepTime)
+		}
+		return
+	}
+}
+
 func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, error) {
 
 	zone, ok := r.zones[domain]
 	if !ok {
 		return nil, errNoExist{domain}
 	}
-	z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
+	var err error
+	var z *GetHostedZoneOutput
+	doWithRetry(func() error {
+		z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
+
 	ns := []*models.Nameserver{}
 	if z.DelegationSet != nil {
 		for _, nsPtr := range z.DelegationSet.NameServers {
@@ -422,10 +449,16 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 			StartRecordType: nextType,
 			MaxItems:        sPtr("100"),
 		}
-		list, err := r.client.ListResourceRecordSets(listInput)
+		var err error
+		var list *ListResourceRecordSetsOutput
+		doWithRetry(func() error {
+			list, err := r.client.ListResourceRecordSets(listInput)
+			return err
+		})
 		if err != nil {
 			return nil, err
 		}
+
 		records = append(records, list.ResourceRecordSets...)
 		if list.NextRecordName != nil {
 			next = list.NextRecordName

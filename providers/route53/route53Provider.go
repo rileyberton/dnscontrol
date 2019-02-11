@@ -140,8 +140,9 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 				}
 				fmt.Printf("GetNameservers Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
 				time.Sleep(sleepTime)
+			} else {
+				return nil, err
 			}
-			return nil, err
 		}
 	}()
 	if err != nil {
@@ -459,8 +460,9 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 					}
 					fmt.Printf("fetchRecordSets Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
 					time.Sleep(sleepTime)
+				} else {
+					return nil, err
 				}
-				return nil, err
 			}
 		}()
 		if err != nil {

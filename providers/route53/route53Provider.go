@@ -127,14 +127,14 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 	z, err := func() (*r53.GetHostedZoneOutput, error) {
 		const maxRetries = 23
 		const sleepTime = 5 * time.Second
-		var currentRetry int
+		var currentRetry int = 0
 		for {
 			z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
 			if err == nil {
 				return z, nil
 			}
 			fmt.Printf("Received error: %s\n", err.Error())
-			if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
+			if strings.Contains(err.Error(), "Rate exceeded") {
 				currentRetry++
 				if currentRetry >= maxRetries {
 					return nil, err
@@ -446,13 +446,14 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 		list, err := func() (*r53.ListResourceRecordSetsOutput, error) {
 			const maxRetries = 23
 			const sleepTime = 5 * time.Second
-			var currentRetry int
+			var currentRetry int = 0
 			for {
 				z, err := r.client.ListResourceRecordSets(listInput)
 				if err == nil {
 					return z, nil
 				}
-				if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
+				fmt.Printf("Received error: %s\n", err.Error())
+				if strings.Contains(err.Error(), "Rate exceeded") {
 					currentRetry++
 					if currentRetry >= maxRetries {
 						return nil, err

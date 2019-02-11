@@ -126,7 +126,7 @@ func doWithRetry(f func() error) {
 		if err == nil {
 			return
 		}
-		if err.Code() == route53.ErrCodeThrottlingException {
+		if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
 			currentRetry++
 			if currentRetry >= maxRetries {
 				return
@@ -145,7 +145,7 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 		return nil, errNoExist{domain}
 	}
 	var err error
-	var z *GetHostedZoneOutput
+	var z *r53.GetHostedZoneOutput
 	doWithRetry(func() error {
 		z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
 		return err
@@ -450,7 +450,7 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 			MaxItems:        sPtr("100"),
 		}
 		var err error
-		var list *ListResourceRecordSetsOutput
+		var list *r53.ListResourceRecordSetsOutput
 		doWithRetry(func() error {
 			list, err := r.client.ListResourceRecordSets(listInput)
 			return err

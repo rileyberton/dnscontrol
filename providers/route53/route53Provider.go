@@ -11,6 +11,7 @@ import (
 	"github.com/StackExchange/dnscontrol/providers"
 	"github.com/StackExchange/dnscontrol/providers/diff"
 	"github.com/aws/aws-sdk-go/aws"
+	awserr "github.com/aws/aws-sdk-go/aws/awserror"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	r53 "github.com/aws/aws-sdk-go/service/route53"

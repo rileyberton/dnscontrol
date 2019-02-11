@@ -118,10 +118,7 @@ func (e errNoExist) Error() string {
 	return fmt.Sprintf("Domain %s not found in your route 53 account", e.domain)
 }
 
-type awsreturn struct {
-}
-
-func doWithRetry(f func() (*awsreturn, error)) (*awsreturn, error) {
+func doWithRetry(f func() (_, error)) (_, error) {
 	const maxRetries = 23
 	const sleepTime = 5 * time.Second
 	var currentRetry int
@@ -148,7 +145,7 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 	if !ok {
 		return nil, errNoExist{domain}
 	}
-	z, err = doWithRetry(func() (*awsreturn, error) {
+	z, err := doWithRetry(func() (*r53.GetHostedZoneOutput, error) {
 		z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
 		return z, err
 	})
@@ -450,9 +447,7 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 			StartRecordType: nextType,
 			MaxItems:        sPtr("100"),
 		}
-		var list *r53.ListResourceRecordSetsOutput
-		var err error
-		list, err = doWithRetry(func() (*awsreturn, error) {
+		list, err := doWithRetry(func() (*r53.ListResourceRecordSetsOutput, error) {
 			list, err := r.client.ListResourceRecordSets(listInput)
 			return list, err
 		})

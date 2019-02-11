@@ -145,8 +145,8 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 	if !ok {
 		return nil, errNoExist{domain}
 	}
-	var err error
 	var z *r53.GetHostedZoneOutput
+	var err error
 	doWithRetry(func() error {
 		z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
 		return err
@@ -450,8 +450,8 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 			StartRecordType: nextType,
 			MaxItems:        sPtr("100"),
 		}
-		var err error
 		var list *r53.ListResourceRecordSetsOutput
+		var err error
 		doWithRetry(func() error {
 			list, err := r.client.ListResourceRecordSets(listInput)
 			return err

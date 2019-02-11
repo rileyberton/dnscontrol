@@ -144,7 +144,7 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 			return nil, err
 		}
 		return nil, err
-	}
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +463,7 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 				return nil, err
 			}
 			return nil, err
-		}
+		}()
 		if err != nil {
 			return nil, err
 		}

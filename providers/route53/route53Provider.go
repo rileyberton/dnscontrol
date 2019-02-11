@@ -144,17 +144,17 @@ func doWithRetry(f func() error) {
 	for {
 		err := f()
 		if err == nil {
-			return
+			return nil
 		}
 		if strings.Contains(err.Error(), "Throttling") {
 			currentRetry++
 			if currentRetry >= maxRetries {
-				return
+				return err
 			}
 			printer.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
 			time.Sleep(sleepTime)
 		} else {
-			return
+			return err
 		}
 	}
 }
@@ -268,7 +268,7 @@ func (r *route53Provider) GetDomainCorrections(dc *models.DomainConfig) ([]*mode
 				Msg: msg,
 				F: func() error {
 					req.HostedZoneId = zone.Id
-					doWithRetry(func() error {
+					return doWithRetry(func() error {
 						_, err := r.client.ChangeResourceRecordSets(req)
 						return err
 					})

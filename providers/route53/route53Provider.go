@@ -133,6 +133,7 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 			if err == nil {
 				return z, nil
 			}
+			fmt.Printf("Received error: %s\n", err.Error())
 			if err.(awserr.Error).Code() == r53.ErrCodeThrottlingException {
 				currentRetry++
 				if currentRetry >= maxRetries {

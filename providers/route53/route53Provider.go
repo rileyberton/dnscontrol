@@ -84,13 +84,41 @@ func sPtr(s string) *string {
 	return &s
 }
 
+func withRetry(f func() error) {
+	const maxRetries = 23
+	// TODO: exponential backoff
+	const sleepTime = 5 * time.Second
+	var currentRetry int = 0
+	for {
+		err := f()
+		if err == nil {
+			return
+		}
+		if strings.Contains(err.Error(), "Rate exceeded") {
+			currentRetry++
+			if currentRetry >= maxRetries {
+				return
+			}
+			fmt.Printf("============ Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
+			time.Sleep(sleepTime)
+		} else {
+			return
+		}
+	}
+	return
+}
+
 func (r *route53Provider) getZones() error {
 	var nextMarker *string
 	r.zones = make(map[string]*r53.HostedZone)
 	for {
-
-		inp := &r53.ListHostedZonesInput{Marker: nextMarker}
-		out, err := r.client.ListHostedZones(inp)
+		var out *r53.ListHostedZonesOutput
+		var err error
+		withRetry(func() error {
+			inp := &r53.ListHostedZonesInput{Marker: nextMarker}
+			out, err = r.client.ListHostedZones(inp)
+			return err
+		})
 		if err != nil && strings.Contains(err.Error(), "is not authorized") {
 			return errors.New("Check your credentials, your not authorized to perform actions on Route 53 AWS Service")
 		} else if err != nil {
@@ -123,28 +151,12 @@ func (r *route53Provider) GetNameservers(domain string) ([]*models.Nameserver, e
 	if !ok {
 		return nil, errNoExist{domain}
 	}
-	z, err := func() (*r53.GetHostedZoneOutput, error) {
-		const maxRetries = 23
-		const sleepTime = 5 * time.Second
-		var currentRetry int = 0
-		for {
-			z, err := r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
-			if err == nil {
-				return z, nil
-			}
-			fmt.Printf("Received error: %s\n", err.Error())
-			if strings.Contains(err.Error(), "Rate exceeded") {
-				currentRetry++
-				if currentRetry >= maxRetries {
-					return nil, err
-				}
-				fmt.Printf("GetNameservers Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
-				time.Sleep(sleepTime)
-			} else {
-				return nil, err
-			}
-		}
-	}()
+	var z *r53.GetHostedZoneOutput
+	var err error
+	withRetry(func() error {
+		z, err = r.client.GetHostedZone(&r53.GetHostedZoneInput{Id: zone.Id})
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -265,26 +277,12 @@ func (r *route53Provider) GetDomainCorrections(dc *models.DomainConfig) ([]*mode
 			&models.Correction{
 				Msg: msg,
 				F: func() error {
-					req.HostedZoneId = zone.Id
-					const maxRetries = 23
-					const sleepTime = 5 * time.Second
-					var currentRetry int
 					var err error
-					for {
-						_, err := r.client.ChangeResourceRecordSets(req)
-						if err == nil {
-							return err
-						}
-						if strings.Contains(err.Error(), "Throttling") {
-							currentRetry++
-							if currentRetry >= maxRetries {
-								return err
-							}
-							fmt.Printf("Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
-							time.Sleep(sleepTime)
-						}
+					req.HostedZoneId = zone.Id
+					withRetry(func() error {
+						_, err = r.client.ChangeResourceRecordSets(req)
 						return err
-					}
+					})
 					return err
 				},
 			})
@@ -402,7 +400,12 @@ func (r *route53Provider) GetRegistrarCorrections(dc *models.DomainConfig) ([]*m
 }
 
 func (r *route53Provider) getRegistrarNameservers(domainName *string) ([]string, error) {
-	domainDetail, err := r.registrar.GetDomainDetail(&r53d.GetDomainDetailInput{DomainName: domainName})
+	var domainDetail *r53d.GetDomainDetailOutput
+	var err error
+	withRetry(func() error {
+		domainDetail, err = r.registrar.GetDomainDetail(&r53d.GetDomainDetailInput{DomainName: domainName})
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -420,8 +423,13 @@ func (r *route53Provider) updateRegistrarNameservers(domainName string, nameserv
 	for i := range nameservers {
 		servers = append(servers, &r53d.Nameserver{Name: &nameservers[i]})
 	}
-
-	domainUpdate, err := r.registrar.UpdateDomainNameservers(&r53d.UpdateDomainNameserversInput{DomainName: &domainName, Nameservers: servers})
+	var domainUpdate *r53d.UpdateDomainNameserversOutput
+	var err error
+	withRetry(func() error {
+		domainUpdate, err = r.registrar.UpdateDomainNameservers(&r53d.UpdateDomainNameserversInput{
+			DomainName: &domainName, Nameservers: servers})
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -443,28 +451,12 @@ func (r *route53Provider) fetchRecordSets(zoneID *string) ([]*r53.ResourceRecord
 			StartRecordType: nextType,
 			MaxItems:        sPtr("100"),
 		}
-		list, err := func() (*r53.ListResourceRecordSetsOutput, error) {
-			const maxRetries = 23
-			const sleepTime = 5 * time.Second
-			var currentRetry int = 0
-			for {
-				z, err := r.client.ListResourceRecordSets(listInput)
-				if err == nil {
-					return z, nil
-				}
-				fmt.Printf("Received error: %s\n", err.Error())
-				if strings.Contains(err.Error(), "Rate exceeded") {
-					currentRetry++
-					if currentRetry >= maxRetries {
-						return nil, err
-					}
-					fmt.Printf("fetchRecordSets Route53 rate limit exceeded. Waiting %s to retry.\n", sleepTime)
-					time.Sleep(sleepTime)
-				} else {
-					return nil, err
-				}
-			}
-		}()
+		var list *r53.ListResourceRecordSetsOutput
+		var err error
+		withRetry(func() error {
+			list, err = r.client.ListResourceRecordSets(listInput)
+			return err
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -504,6 +496,10 @@ func (r *route53Provider) EnsureDomainExists(domain string) error {
 		DelegationSetId: r.delegationSet,
 		CallerReference: sPtr(fmt.Sprint(time.Now().UnixNano())),
 	}
-	_, err := r.client.CreateHostedZone(in)
+	var err error
+	withRetry(func() error {
+		_, err := r.client.CreateHostedZone(in)
+		return err
+	})
 	return err
 }
